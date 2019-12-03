@@ -30,11 +30,14 @@ class Frame:
             tree += j.dump(depth+1,'%i: '%idx) ; idx += 1
         # subtree dump
         return tree
-    # short <T:V> header
-    def head(self,prefix=''):
-        return '%s<%s:%s> @%x' % (prefix,self.type,self._val(),id(self))
     def _pad(self,depth):
         return '\n' + ' '*4 * depth
+
+    # short <T:V> header
+    def head(self,prefix='',test=False):
+        hdr = '%s<%s:%s>' % (prefix,self.type,self._val())
+        if not test: hdr += ' @%x' % id(self)
+        return hdr
     def _val(self):
         return str(self.val)
 

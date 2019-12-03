@@ -1,4 +1,5 @@
-<link rel="stylesheet"    type="text/css"  href="/css.css">
-<link rel="shortcut icon" type="image/png" href="/logo.png">
+{% extends 'all.html' %}
 
+{% block body %}
 <pre id=dump>{{vm.dump()}}</pre>
+{% endblock %}
