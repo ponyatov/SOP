@@ -1,0 +1,4 @@
+* {
+    color:{{vm['FORE'].val}}; background: {{vm['BACK'].val}};
+    font-family: {{vm['FONT'].val}}; font-size: {{vm['SIZE'].val}};
+}

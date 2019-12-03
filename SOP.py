@@ -75,3 +75,151 @@ class Frame:
 
     def eval(self,ctx): ctx // self
 
+###################################################################### primitive
+
+class Primitive(Frame):     pass
+class Symbol(Primitive):    pass
+class String(Primitive):    pass
+class Number(Primitive):    pass
+
+################################################# EDS: Executable Data Structure
+
+class Active(Frame):        pass
+class VM(Active):           pass
+class Cmd(Active):
+    def __init__(self,F,I=False):
+        assert callable(F)
+        Active.__init__(self,F.__name__,I)
+        self.fn = F
+    def eval(self,ctx): self.fn(ctx)
+
+################################################################ Virtual Machine
+
+vm = VM('Smalltalk') ; vm << vm
+
+def bye(ctx): sys.exit(0)
+vm >> bye
+
+########################################################################## debug
+
+def at(ctx): print(ctx)
+vm['@'] = at
+
+def atat(ctx): print(ctx) ; bye(ctx)
+vm['@@'] = atat
+
+################################################################## manupulations
+
+def eq(ctx): addr = ctx.pop().val ; ctx[addr] = ctx.pop()
+vm['='] = eq
+
+############################################################### no-syntax parser
+
+import ply.lex as lex
+
+tokens = ['string','symbol']
+
+t_ignore         = ' \t\r\n'
+t_ignore_comment = r'[\#\\].*'
+
+states = (('str','exclusive'),)
+
+t_str_ignore = ''
+
+def t_str(t):
+    r"'"
+    t.lexer.push_state('str') ; t.lexer.string = ''
+def t_str_str(t):
+    r"'"
+    t.lexer.pop_state() ; return String(t.lexer.string)
+def t_str_any(t):
+    r"."
+    t.lexer.string += t.value
+
+def t_symbol(t):
+    r'[`]|[^ \t\r\n\#\\]+'
+    return Symbol(t.value)
+
+def t_ANY_error(t): raise SyntaxError(t)
+
+#################################################################### interpreter
+
+def WORD(ctx):
+    token = ctx.lexer.token()
+    if token: ctx // token
+    return token
+vm['`'] = WORD
+
+def FIND(ctx):
+    token = ctx.pop()
+    try:             ctx // ctx[token.val] ; return True
+    except KeyError: ctx // token          ; return False
+
+def EVAL(ctx): ctx.pop().eval(ctx)
+
+def INTERP(ctx):
+    ctx.lexer = lex.lex() ; ctx.lexer.input(ctx.pop().val)
+    while True:
+        if not WORD(ctx): break
+        if isinstance(ctx.top(),Symbol):
+            if not FIND(ctx): raise SyntaxError(ctx.top())
+        EVAL(ctx)
+
+############################################################################# IO
+
+class IO(Frame):            pass
+
+##################################################################### networking
+
+class Net(IO):              pass
+class IP(Net):              pass
+class Port(Net):            pass
+
+def ip(ctx): ctx // IP(ctx.pop().val)
+vm >> ip
+
+def port(ctx): ctx // Port(ctx.pop().val)
+vm >> port
+
+#################################################################### documenting
+
+class Doc(Frame):           pass
+class Color(Doc):           pass
+class Font(Doc):            pass
+class Size(Doc,Number):     pass
+
+def color(ctx): ctx // Color(ctx.pop().val)
+vm >> color
+
+def font(ctx): ctx // Font(ctx.pop().val)
+vm >> font
+
+def size(ctx): ctx // Size(ctx.pop().val)
+vm >> size
+
+################################################################## Web interface
+
+def WEB(ctx):
+
+    import flask
+    web = flask.Flask(vm.val)
+
+    @web.route('/')
+    def index(): return flask.render_template('index.html',vm=vm)
+
+    @web.route('/css.css')
+    def css(): return flask.Response(flask.render_template('css.css',vm=vm),mimetype='text/css')
+
+    @web.route('/<path:path>.png')
+    def png(path): return flask.Response(web.send_static_file(path+'.png'),mimetype='image/png')
+
+    web.run(host=vm['HOST'].val,port=vm['PORT'].val,debug=True,extra_files=sys.argv[1:])
+
+vm >> WEB
+
+#################################################################### system init
+
+if __name__ == '__main__':
+    for i in sys.argv[1:]:
+        with open(i) as src:
+            vm // String(src.read()) ; INTERP(vm)
